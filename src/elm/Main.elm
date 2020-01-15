@@ -56,6 +56,7 @@ type Msg
     | AuthMsg Auth.Msg
     | InitialTimeout
     | LogIn
+    | LogOut
     | RespondWithNewPassword
     | TryAgain
     | Refresh
@@ -142,6 +143,9 @@ updateInitialized action model =
                     ( model, Auth.api.requiredNewPassword newPassword |> Cmd.map AuthMsg )
 
         TryAgain ->
+            ( clear model, Auth.api.unauthed |> Cmd.map AuthMsg )
+
+        LogOut ->
             ( clear model, Auth.api.logout |> Cmd.map AuthMsg )
 
         Refresh ->
@@ -358,7 +362,7 @@ authenticatedView model user =
                     )
                 ]
             ]
-            [ Buttons.button [] [ onClick TryAgain ] [ text "Log Out" ] devices
+            [ Buttons.button [] [ onClick LogOut ] [ text "Log Out" ] devices
             , Buttons.button [] [ onClick Refresh ] [ text "Refresh" ] devices
             ]
             devices
