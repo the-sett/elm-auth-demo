@@ -58,6 +58,7 @@ type Msg
     | LogIn
     | RespondWithNewPassword
     | TryAgain
+    | Refresh
     | UpdateUsername String
     | UpdatePassword String
     | UpdatePasswordVerificiation String
@@ -142,6 +143,9 @@ updateInitialized action model =
 
         TryAgain ->
             ( clear { model | session = AuthAPI.LoggedOut }, Auth.api.unauthed |> Cmd.map AuthMsg )
+
+        Refresh ->
+            ( model, Auth.api.refresh |> Cmd.map AuthMsg )
 
         UpdateUsername str ->
             ( { model | username = str }, Cmd.none )
@@ -354,7 +358,9 @@ authenticatedView model user =
                     )
                 ]
             ]
-            [ Buttons.button [] [ onClick TryAgain ] [ text "Log Out" ] devices ]
+            [ Buttons.button [] [ onClick TryAgain ] [ text "Log Out" ] devices
+            , Buttons.button [] [ onClick Refresh ] [ text "Refresh" ] devices
+            ]
             devices
         ]
 
