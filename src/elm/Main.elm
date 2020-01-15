@@ -142,7 +142,7 @@ updateInitialized action model =
                     ( model, Auth.api.requiredNewPassword newPassword |> Cmd.map AuthMsg )
 
         TryAgain ->
-            ( clear { model | session = AuthAPI.LoggedOut }, Auth.api.unauthed |> Cmd.map AuthMsg )
+            ( clear model, Auth.api.logout |> Cmd.map AuthMsg )
 
         Refresh ->
             ( model, Auth.api.refresh |> Cmd.map AuthMsg )
