@@ -6,7 +6,8 @@ module Main exposing (init, update, view, Model, Msg)
 
 -}
 
-import Auth
+import AWS.Auth as Auth
+import AuthAPI
 import Browser
 import Config exposing (config)
 import Css
@@ -86,7 +87,7 @@ init : flags -> ( Model, Cmd Msg )
 init _ =
     let
         authInitResult =
-            Auth.init
+            Auth.api.init
                 { clientId = "2gr0fdlr647skqqghtau04vuct"
                 , userPoolId = "us-east-1_LzM42GX6Q"
                 , region = "us-east-1"
@@ -128,14 +129,14 @@ updateInitialized action model =
                 |> Tuple.mapFirst (\laf -> { model | laf = laf })
 
         AuthMsg msg ->
-            Update3.lift .auth (\x m -> { m | auth = x }) AuthMsg Auth.update msg model
+            Update3.lift .auth (\x m -> { m | auth = x }) AuthMsg Auth.api.update msg model
                 |> Update3.evalMaybe (\status -> \nextModel -> ( { nextModel | session = authStatusToSession status }, Cmd.none )) Cmd.none
 
         InitialTimeout ->
-            ( model, Auth.refresh |> Cmd.map AuthMsg )
+            ( model, Auth.api.refresh |> Cmd.map AuthMsg )
 
         LogIn ->
-            ( model, Auth.login { username = model.username, password = model.password } |> Cmd.map AuthMsg )
+            ( model, Auth.api.login { username = model.username, password = model.password } |> Cmd.map AuthMsg )
 
         RespondWithNewPassword ->
             case model.password of
@@ -143,10 +144,10 @@ updateInitialized action model =
                     ( model, Cmd.none )
 
                 newPassword ->
-                    ( model, Auth.requiredNewPassword newPassword |> Cmd.map AuthMsg )
+                    ( model, Auth.api.requiredNewPassword newPassword |> Cmd.map AuthMsg )
 
         TryAgain ->
-            ( clear { model | session = LoggedOut }, Auth.unauthed |> Cmd.map AuthMsg )
+            ( clear { model | session = LoggedOut }, Auth.api.unauthed |> Cmd.map AuthMsg )
 
         UpdateUsername str ->
             ( { model | username = str }, Cmd.none )
@@ -163,21 +164,21 @@ clear model =
     { model | username = "", password = "", passwordVerify = "" }
 
 
-authStatusToSession : Auth.Status -> Session
+authStatusToSession : AuthAPI.Status Auth.Challenge -> Session
 authStatusToSession status =
     case status of
-        Auth.LoggedOut ->
+        AuthAPI.LoggedOut ->
             LoggedOut
 
-        Auth.Failed ->
+        AuthAPI.Failed ->
             FailedAuth
 
-        Auth.Challenged challenge ->
+        AuthAPI.Challenged challenge ->
             case challenge of
                 Auth.NewPasswordRequired ->
                     RequiresNewPassword
 
-        Auth.LoggedIn access ->
+        AuthAPI.LoggedIn access ->
             LoggedIn access
 
 
