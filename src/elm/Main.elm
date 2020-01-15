@@ -35,28 +35,18 @@ import ViewUtils
 -}
 type Model
     = Error String
+    | Restoring InitializedModel
     | Initialized InitializedModel
 
 
 type alias InitializedModel =
     { laf : Laf.Model
     , auth : Auth.Model
-    , session : Session
+    , session : AuthAPI.Status Auth.Challenge
     , username : String
     , password : String
     , passwordVerify : String
     }
-
-
-type Session
-    = Initial
-    | LoggedOut
-    | FailedAuth
-    | LoggedIn
-        { scopes : List String
-        , subject : String
-        }
-    | RequiresNewPassword
 
 
 {-| The content editor program top-level message types.
@@ -98,7 +88,7 @@ init _ =
             ( Initialized
                 { laf = Laf.init
                 , auth = authInit
-                , session = Initial
+                , session = AuthAPI.LoggedOut
                 , username = ""
                 , password = ""
                 , passwordVerify = ""
@@ -116,6 +106,10 @@ update action model =
         Error _ ->
             ( model, Cmd.none )
 
+        Restoring initModel ->
+            updateInitialized action initModel
+                |> Tuple.mapFirst Initialized
+
         Initialized initModel ->
             updateInitialized action initModel
                 |> Tuple.mapFirst Initialized
@@ -130,7 +124,7 @@ updateInitialized action model =
 
         AuthMsg msg ->
             Update3.lift .auth (\x m -> { m | auth = x }) AuthMsg Auth.api.update msg model
-                |> Update3.evalMaybe (\status -> \nextModel -> ( { nextModel | session = authStatusToSession status }, Cmd.none )) Cmd.none
+                |> Update3.evalMaybe (\status -> \nextModel -> ( { nextModel | session = status }, Cmd.none )) Cmd.none
 
         InitialTimeout ->
             ( model, Auth.api.refresh |> Cmd.map AuthMsg )
@@ -147,7 +141,7 @@ updateInitialized action model =
                     ( model, Auth.api.requiredNewPassword newPassword |> Cmd.map AuthMsg )
 
         TryAgain ->
-            ( clear { model | session = LoggedOut }, Auth.api.unauthed |> Cmd.map AuthMsg )
+            ( clear { model | session = AuthAPI.LoggedOut }, Auth.api.unauthed |> Cmd.map AuthMsg )
 
         UpdateUsername str ->
             ( { model | username = str }, Cmd.none )
@@ -162,24 +156,6 @@ updateInitialized action model =
 clear : InitializedModel -> InitializedModel
 clear model =
     { model | username = "", password = "", passwordVerify = "" }
-
-
-authStatusToSession : AuthAPI.Status Auth.Challenge -> Session
-authStatusToSession status =
-    case status of
-        AuthAPI.LoggedOut ->
-            LoggedOut
-
-        AuthAPI.Failed ->
-            FailedAuth
-
-        AuthAPI.Challenged challenge ->
-            case challenge of
-                Auth.NewPasswordRequired ->
-                    RequiresNewPassword
-
-        AuthAPI.LoggedIn access ->
-            LoggedIn access
 
 
 
@@ -237,6 +213,9 @@ styledBody model =
                 Error errMsg ->
                     errorView errMsg
 
+                Restoring initModel ->
+                    initialView
+
                 Initialized initModel ->
                     initializedView initModel
             ]
@@ -260,19 +239,16 @@ errorView errMsg =
 
 initializedView model =
     case model.session of
-        Initial ->
-            initialView
-
-        LoggedOut ->
+        AuthAPI.LoggedOut ->
             loginView model
 
-        FailedAuth ->
+        AuthAPI.Failed ->
             notPermittedView model
 
-        LoggedIn state ->
+        AuthAPI.LoggedIn state ->
             authenticatedView model state
 
-        RequiresNewPassword ->
+        AuthAPI.Challenged Auth.NewPasswordRequired ->
             requiresNewPasswordView model
 
 
