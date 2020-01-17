@@ -42,7 +42,7 @@ type Model
 type alias InitializedModel =
     { laf : Laf.Model
     , auth : Auth.Model
-    , session : AuthAPI.Status Auth.Challenge
+    , session : AuthAPI.Status Auth.AuthExtensions Auth.Challenge
     , username : String
     , password : String
     , passwordVerify : String
@@ -81,8 +81,13 @@ init _ =
         authInitResult =
             Auth.api.init
                 { clientId = "2gr0fdlr647skqqghtau04vuct"
-                , userPoolId = "us-east-1_LzM42GX6Q"
                 , region = "us-east-1"
+                , userIdentityMapping =
+                    Just
+                        { userPoolId = "us-east-1_LzM42GX6Q"
+                        , identityPoolId = ""
+                        , accountId = ""
+                        }
                 }
     in
     case authInitResult of
