@@ -344,28 +344,49 @@ notPermittedView model =
         ]
 
 
-authenticatedView : { a | username : String } -> { scopes : List String, subject : String } -> Html.Styled.Html Msg
+authenticatedView : { a | username : String, auth : Auth.Model } -> { scopes : List String, subject : String } -> Html.Styled.Html Msg
 authenticatedView model user =
+    let
+        maybeAWSCredentials =
+            Auth.api.getAWSCredentials model.auth
+                |> Debug.log "credentials"
+
+        credentialsView =
+            case maybeAWSCredentials of
+                Just creds ->
+                    [ Html.Styled.li []
+                        (text "With AWS access credentials."
+                            :: Html.Styled.br [] []
+                            :: []
+                        )
+                    ]
+
+                Nothing ->
+                    []
+    in
     framing <|
         [ card "images/data_center-large.png"
             "Authenticated"
             [ Html.Styled.ul []
-                [ Html.Styled.li []
-                    [ text "Logged In As:"
-                    , Html.Styled.br [] []
-                    , text model.username
+                (List.append
+                    [ Html.Styled.li []
+                        [ text "Logged In As:"
+                        , Html.Styled.br [] []
+                        , text model.username
+                        ]
+                    , Html.Styled.li []
+                        [ text "With Id:"
+                        , Html.Styled.br [] []
+                        , text user.subject
+                        ]
+                    , Html.Styled.li []
+                        (text "With Permissions:"
+                            :: Html.Styled.br [] []
+                            :: permissionsToChips user.scopes
+                        )
                     ]
-                , Html.Styled.li []
-                    [ text "With Id:"
-                    , Html.Styled.br [] []
-                    , text user.subject
-                    ]
-                , Html.Styled.li []
-                    (text "With Permissions:"
-                        :: Html.Styled.br [] []
-                        :: permissionsToChips user.scopes
-                    )
-                ]
+                    credentialsView
+                )
             ]
             [ Buttons.button [] [ onClick LogOut ] [ text "Log Out" ] devices
             , Buttons.button [] [ onClick Refresh ] [ text "Refresh" ] devices
