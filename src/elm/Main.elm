@@ -85,8 +85,8 @@ init _ =
                 , userIdentityMapping =
                     Just
                         { userPoolId = "us-east-1_LzM42GX6Q"
-                        , identityPoolId = ""
-                        , accountId = ""
+                        , identityPoolId = "us-east-1:fb4d5209-33b1-46e2-923a-8aa206d5c7aa"
+                        , accountId = "345745834314"
                         }
                 }
     in
