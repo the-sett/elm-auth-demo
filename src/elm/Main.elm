@@ -42,7 +42,7 @@ type Model
 type alias InitializedModel =
     { laf : Laf.Model
     , auth : Auth.Model
-    , session : AuthAPI.Status Auth.AuthExtensions Auth.Challenge
+    , session : AuthAPI.Status Auth.AuthExtensions Auth.Challenge Auth.FailReason
     , username : String
     , password : String
     , passwordVerify : String
@@ -88,6 +88,8 @@ init _ =
                         , identityPoolId = "us-east-1:fb4d5209-33b1-46e2-923a-8aa206d5c7aa"
                         , accountId = "345745834314"
                         }
+                , authHeaderName = "Authorization"
+                , authHeaderPrefix = Just "Bearer"
                 }
     in
     case authInitResult of
@@ -250,12 +252,13 @@ errorView errMsg =
         ]
 
 
+initializedView : InitializedModel -> Html.Styled.Html Msg
 initializedView model =
     case model.session of
         AuthAPI.LoggedOut ->
             loginView model
 
-        AuthAPI.Failed ->
+        AuthAPI.Failed _ ->
             notPermittedView model
 
         AuthAPI.LoggedIn state ->
@@ -344,7 +347,7 @@ notPermittedView model =
         ]
 
 
-authenticatedView : { a | username : String, auth : Auth.Model } -> { scopes : List String, subject : String } -> Html.Styled.Html Msg
+authenticatedView : { a | username : String, auth : Auth.Model } -> { b | scopes : List String, subject : String } -> Html.Styled.Html Msg
 authenticatedView model user =
     let
         maybeAWSCredentials =
