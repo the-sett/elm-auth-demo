@@ -126,7 +126,7 @@ update action model =
 
 updateInitialized : Msg -> InitializedModel -> ( InitializedModel, Cmd Msg )
 updateInitialized action model =
-    case Debug.log "msg" action of
+    case action of
         LafMsg lafMsg ->
             Laf.update LafMsg lafMsg model.laf
                 |> Tuple.mapFirst (\laf -> { model | laf = laf })
@@ -352,7 +352,6 @@ authenticatedView model user =
     let
         maybeAWSCredentials =
             Auth.api.getAWSCredentials model.auth
-                |> Debug.log "credentials"
 
         credentialsView =
             case maybeAWSCredentials of
