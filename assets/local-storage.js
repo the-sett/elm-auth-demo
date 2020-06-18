@@ -1,22 +1,22 @@
 var ElmLocalStoragePorts = function() {};
 
 ElmLocalStoragePorts.prototype.subscribe =
-  function(app, getPortName, setPortName, clearPortName, receivePortName, listKeysPortName) {
+  function(app, getPortName, setPortName, clearPortName, responsePortName, listKeysPortName) {
 
     if (!getPortName) getPortName = "getItem";
     if (!setPortName) setPortName = "setItem";
     if (!clearPortName) clearPortName = "clear";
-    if (!receivePortName) receivePortName = "receiveItem";
     if (!listKeysPortName) listKeysPortName = "listKeys";
+    if (!responsePortName) responsePortName = "response";
 
-    var receivePort = app.ports[receivePortName];
+    var responsePort = app.ports[responsePortName];
 
     app.ports[getPortName].subscribe(function(key) {
       var val = null;
       try {
         val = JSON.parse(localStorage.getItem(key))
       } catch (e) {}
-      receivePort.send({
+      responsePort.send({
         key: key,
         value: val
       })
@@ -55,7 +55,7 @@ ElmLocalStoragePorts.prototype.subscribe =
           keys.push(key);
         }
       }
-      receivePort.send({
+      responsePort.send({
         prefix: prefix,
         keys: keys
       });
