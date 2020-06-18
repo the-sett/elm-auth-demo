@@ -1,4 +1,4 @@
-module Main exposing (init, update, view, Model, Msg)
+module Main exposing (init, update, subscriptions, view, Model, Msg)
 
 {-| The content editor client top module.
 
@@ -18,7 +18,8 @@ import Html.Styled exposing (div, form, h4, img, label, span, styled, text, toUn
 import Html.Styled.Attributes exposing (for, name, src)
 import Html.Styled.Events exposing (onClick, onInput)
 import Json.Encode as Encode
-import Ports.LocalStoragePort
+import LocalStorage
+import Ports.LocalStoragePort as LocalStoragePort
 import Process
 import Responsive
 import Styles exposing (lg, md, sm, xl)
@@ -56,6 +57,7 @@ type alias InitializedModel =
 type Msg
     = LafMsg Laf.Msg
     | AuthMsg Auth.Msg
+    | LocalStorageOp LocalStorage.Operation String Encode.Value
     | InitialTimeout
     | LogIn
     | LogOut
@@ -111,6 +113,11 @@ init _ =
             ( Error errMsg, Cmd.none )
 
 
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    LocalStoragePort.response <| LocalStorage.responseHandler LocalStorageOp "auth"
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update action model =
     case model of
@@ -136,6 +143,11 @@ updateInitialized action model =
         AuthMsg msg ->
             Update3.lift .auth (\x m -> { m | auth = x }) AuthMsg Auth.api.update msg model
                 |> Update3.evalMaybe updateStatus Cmd.none
+
+        LocalStorageOp op key value ->
+            case op of
+                _ ->
+                    ( model, Cmd.none )
 
         InitialTimeout ->
             ( model, Auth.api.refresh |> Cmd.map AuthMsg )
