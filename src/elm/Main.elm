@@ -17,6 +17,7 @@ import Html
 import Html.Styled exposing (div, form, h4, img, label, span, styled, text, toUnstyled)
 import Html.Styled.Attributes exposing (for, name, src)
 import Html.Styled.Events exposing (onClick, onInput)
+import Json.Encode as Encode
 import Process
 import Responsive
 import Styles exposing (lg, md, sm, xl)
@@ -133,7 +134,7 @@ updateInitialized action model =
 
         AuthMsg msg ->
             Update3.lift .auth (\x m -> { m | auth = x }) AuthMsg Auth.api.update msg model
-                |> Update3.evalMaybe (\status -> \nextModel -> ( { nextModel | session = status }, Cmd.none )) Cmd.none
+                |> Update3.evalMaybe updateStatus Cmd.none
 
         InitialTimeout ->
             ( model, Auth.api.refresh |> Cmd.map AuthMsg )
@@ -166,6 +167,19 @@ updateInitialized action model =
 
         UpdatePasswordVerificiation str ->
             ( { model | passwordVerify = str }, Cmd.none )
+
+
+updateStatus :
+    AuthAPI.Status Auth.AuthExtensions Auth.Challenge Auth.FailReason
+    -> InitializedModel
+    -> ( InitializedModel, Cmd Msg )
+updateStatus status nextModel =
+    case status of
+        AuthAPI.LoggedIn { saveState } ->
+            ( { nextModel | session = status }, Cmd.none )
+
+        _ ->
+            ( { nextModel | session = status }, Cmd.none )
 
 
 clear : InitializedModel -> InitializedModel
