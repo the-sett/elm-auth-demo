@@ -105,13 +105,10 @@ init _ =
     in
     case authInitResult of
         Ok authInit ->
-            ( Initialized
+            ( Restoring
                 { laf = Laf.init
                 , auth = authInit
                 , session = AuthAPI.LoggedOut
-                , username = ""
-                , password = ""
-                , passwordVerify = ""
                 }
             , Process.sleep 1000 |> Task.perform (always InitialTimeout)
             )
