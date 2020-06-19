@@ -131,20 +131,38 @@ update action model =
         Error _ ->
             ( model, Cmd.none )
 
-        Restoring rm ->
-            updateInitialized action
-                { laf = rm.laf
-                , auth = rm.auth
-                , session = rm.session
-                , username = ""
-                , password = ""
-                , passwordVerify = ""
-                }
+        Restoring restoringModel ->
+            updateRestoring action restoringModel
+                |> Tuple.mapFirst
+                    (\rm ->
+                        { laf = rm.laf
+                        , auth = rm.auth
+                        , session = rm.session
+                        , username = ""
+                        , password = ""
+                        , passwordVerify = ""
+                        }
+                    )
                 |> Tuple.mapFirst Initialized
 
         Initialized initModel ->
             updateInitialized action initModel
                 |> Tuple.mapFirst Initialized
+
+
+updateRestoring : Msg -> RestoringModel -> ( RestoringModel, Cmd Msg )
+updateRestoring action model =
+    case action of
+        LafMsg lafMsg ->
+            Laf.update LafMsg lafMsg model.laf
+                |> Tuple.mapFirst (\laf -> { model | laf = laf })
+
+        AuthMsg msg ->
+            Update3.lift .auth (\x m -> { m | auth = x }) AuthMsg Auth.api.update msg model
+                |> Update3.evalMaybe updateStatus Cmd.none
+
+        _ ->
+            ( model, Cmd.none )
 
 
 updateInitialized : Msg -> InitializedModel -> ( InitializedModel, Cmd Msg )
@@ -198,8 +216,8 @@ updateInitialized action model =
 
 updateStatus :
     AuthAPI.Status Auth.AuthExtensions Auth.Challenge Auth.FailReason
-    -> InitializedModel
-    -> ( InitializedModel, Cmd Msg )
+    -> { a | session : AuthAPI.Status Auth.AuthExtensions Auth.Challenge Auth.FailReason }
+    -> ( { a | session : AuthAPI.Status Auth.AuthExtensions Auth.Challenge Auth.FailReason }, Cmd Msg )
 updateStatus status nextModel =
     case status of
         AuthAPI.LoggedIn { saveState } ->
