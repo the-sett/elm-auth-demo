@@ -9,57 +9,78 @@ ElmLocalStoragePorts.prototype.subscribe =
     if (!listKeysPortName) listKeysPortName = "listKeys";
     if (!responsePortName) responsePortName = "response";
 
-    var responsePort = app.ports[responsePortName];
+    if (app.ports[responsePortName]) {
 
-    app.ports[getPortName].subscribe(function(key) {
-      var val = null;
-      try {
-        val = JSON.parse(localStorage.getItem(key))
-      } catch (e) {}
-      responsePort.send({
-        key: key,
-        value: val
-      })
-    });
+      var responsePort = app.ports[responsePortName];
 
-    app.ports[setPortName].subscribe(function(kv) {
-      var key = kv[0];
-      var json = kv[1];
-      if (json === null) {
-        localStorage.removeItem(key);
+      if (app.ports[getPortName]) {
+        app.ports[getPortName].subscribe(function(key) {
+          var val = null;
+          try {
+            val = JSON.parse(localStorage.getItem(key))
+          } catch (e) {}
+          responsePort.send({
+            key: key,
+            value: val
+          })
+        });
       } else {
-        localStorage.setItem(key, JSON.stringify(json));
+        console.warn("The " + getPortName + " port is not connected.");
       }
-    });
 
-    app.ports[clearPortName].subscribe(function(prefix) {
-      if (prefix) {
-        var cnt = localStorage.length;
-        for (var i = cnt - 1; i >= 0; --i) {
-          var key = localStorage.key(i);
-          if (key && key.startsWith(prefix)) {
+      if (app.ports[setPortName]) {
+        app.ports[setPortName].subscribe(function(kv) {
+          var key = kv[0];
+          var json = kv[1];
+          if (json === null) {
             localStorage.removeItem(key);
+          } else {
+            localStorage.setItem(key, JSON.stringify(json));
           }
-        }
+        });
       } else {
-        localStorage.clear();
+        console.warn("The " + setPortName + " port is not connected.");
       }
-    });
 
-    app.ports[listKeysPortName].subscribe(function(prefix) {
-      var cnt = localStorage.length;
-      var keys = [];
-      for (var i = 0; i < cnt; i++) {
-        var key = localStorage.key(i);
-        if (key && key.startsWith(prefix)) {
-          keys.push(key);
-        }
+      if (app.ports[clearPortName]) {
+        app.ports[clearPortName].subscribe(function(prefix) {
+          if (prefix) {
+            var cnt = localStorage.length;
+            for (var i = cnt - 1; i >= 0; --i) {
+              var key = localStorage.key(i);
+              if (key && key.startsWith(prefix)) {
+                localStorage.removeItem(key);
+              }
+            }
+          } else {
+            localStorage.clear();
+          }
+        });
+      } else {
+        console.warn("The " + clearPortName + " port is not connected.");
       }
-      responsePort.send({
-        prefix: prefix,
-        keys: keys
-      });
-    });
+
+      if (app.ports[listKeysPortName]) {
+        app.ports[listKeysPortName].subscribe(function(prefix) {
+          var cnt = localStorage.length;
+          var keys = [];
+          for (var i = 0; i < cnt; i++) {
+            var key = localStorage.key(i);
+            if (key && key.startsWith(prefix)) {
+              keys.push(key);
+            }
+          }
+          responsePort.send({
+            prefix: prefix,
+            keys: keys
+          });
+        });
+      } else {
+        console.warn("The " + listKeysPortName + " port is not connected.");
+      }
+    } else {
+      console.warn("The " + responsePortName + " port is not connected.");
+    }
   };
 
 module.exports.ElmLocalStoragePorts = ElmLocalStoragePorts;
