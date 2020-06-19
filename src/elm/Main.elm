@@ -38,8 +38,15 @@ import ViewUtils
 -}
 type Model
     = Error String
-    | Restoring InitializedModel
+    | Restoring RestoringModel
     | Initialized InitializedModel
+
+
+type alias RestoringModel =
+    { laf : Laf.Model
+    , auth : Auth.Model
+    , session : AuthAPI.Status Auth.AuthExtensions Auth.Challenge Auth.FailReason
+    }
 
 
 type alias InitializedModel =
@@ -124,8 +131,15 @@ update action model =
         Error _ ->
             ( model, Cmd.none )
 
-        Restoring initModel ->
-            updateInitialized action initModel
+        Restoring rm ->
+            updateInitialized action
+                { laf = rm.laf
+                , auth = rm.auth
+                , session = rm.session
+                , username = ""
+                , password = ""
+                , passwordVerify = ""
+                }
                 |> Tuple.mapFirst Initialized
 
         Initialized initModel ->
