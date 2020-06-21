@@ -102,6 +102,14 @@ init _ =
                 , authHeaderName = "Authorization"
                 , authHeaderPrefix = Just "Bearer"
                 }
+
+        localStorage =
+            LocalStorage.make
+                LocalStoragePort.getItem
+                LocalStoragePort.setItem
+                LocalStoragePort.clear
+                LocalStoragePort.listKeys
+                "auth"
     in
     case authInitResult of
         Ok authInit ->
@@ -110,7 +118,10 @@ init _ =
                 , auth = authInit
                 , session = AuthAPI.LoggedOut
                 }
-            , Process.sleep 1000 |> Task.perform (always InitialTimeout)
+            , Cmd.batch
+                [ Process.sleep 1000 |> Task.perform (always InitialTimeout)
+                , LocalStorage.getItem localStorage "auth"
+                ]
             )
 
         Err errMsg ->
@@ -157,6 +168,13 @@ updateRestoring action model =
         AuthMsg msg ->
             Update3.lift .auth (\x m -> { m | auth = x }) AuthMsg Auth.api.update msg model
                 |> Update3.evalMaybe updateStatus Cmd.none
+
+        LocalStorageOp op key value ->
+            let
+                _ =
+                    Debug.log "msg" (LocalStorageOp op key value)
+            in
+            ( model, Cmd.none )
 
         _ ->
             ( model, Cmd.none )
