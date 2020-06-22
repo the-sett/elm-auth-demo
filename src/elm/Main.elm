@@ -169,12 +169,15 @@ updateRestoring action model =
             Update3.lift .auth (\x m -> { m | auth = x }) AuthMsg Auth.api.update msg model
                 |> Update3.evalMaybe updateStatus Cmd.none
 
+        InitialTimeout ->
+            ( model, Cmd.none )
+
         LocalStorageOp op key value ->
             let
                 _ =
-                    Debug.log "msg" (LocalStorageOp op key value)
+                    Debug.log "msg" { op = op, key = key, value = Encode.encode 0 value }
             in
-            ( model, Cmd.none )
+            ( model, Auth.api.restore value |> Cmd.map AuthMsg )
 
         _ ->
             ( model, Cmd.none )
@@ -190,14 +193,6 @@ updateInitialized action model =
         AuthMsg msg ->
             Update3.lift .auth (\x m -> { m | auth = x }) AuthMsg Auth.api.update msg model
                 |> Update3.evalMaybe updateStatus Cmd.none
-
-        LocalStorageOp op key value ->
-            case op of
-                _ ->
-                    ( model, Cmd.none )
-
-        InitialTimeout ->
-            ( model, Auth.api.refresh |> Cmd.map AuthMsg )
 
         LogIn ->
             ( model, Auth.api.login { username = model.username, password = model.password } |> Cmd.map AuthMsg )
@@ -227,6 +222,9 @@ updateInitialized action model =
 
         UpdatePasswordVerificiation str ->
             ( { model | passwordVerify = str }, Cmd.none )
+
+        _ ->
+            ( model, Cmd.none )
 
 
 updateStatus :
