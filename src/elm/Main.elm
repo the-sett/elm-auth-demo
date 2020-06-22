@@ -18,7 +18,7 @@ import Html.Styled exposing (div, form, h4, img, label, span, styled, text, toUn
 import Html.Styled.Attributes exposing (for, name, src)
 import Html.Styled.Events exposing (onClick, onInput)
 import Json.Encode as Encode
-import LocalStorage
+import LocalStorage exposing (LocalStorage)
 import Ports.LocalStoragePort as LocalStoragePort
 import Process
 import Responsive
@@ -46,6 +46,7 @@ type alias RestoringModel =
     { laf : Laf.Model
     , auth : Auth.Model
     , session : AuthAPI.Status Auth.AuthExtensions Auth.Challenge Auth.FailReason
+    , localStorage : LocalStorage Msg
     }
 
 
@@ -56,6 +57,7 @@ type alias InitializedModel =
     , username : String
     , password : String
     , passwordVerify : String
+    , localStorage : LocalStorage Msg
     }
 
 
@@ -117,6 +119,7 @@ init _ =
                 { laf = Laf.init
                 , auth = authInit
                 , session = AuthAPI.LoggedOut
+                , localStorage = localStorage
                 }
             , Cmd.batch
                 [ Process.sleep 1000 |> Task.perform (always InitialTimeout)
@@ -149,6 +152,7 @@ update action model =
                         , username = ""
                         , password = ""
                         , passwordVerify = ""
+                        , localStorage = rm.localStorage
                         }
                     )
                 |> Tuple.mapFirst Initialized
@@ -167,7 +171,7 @@ updateRestoring action model =
 
         AuthMsg msg ->
             Update3.lift .auth (\x m -> { m | auth = x }) AuthMsg Auth.api.update msg model
-                |> Update3.evalMaybe updateStatus Cmd.none
+                |> Update3.evalMaybe (updateStatus model.localStorage) Cmd.none
 
         InitialTimeout ->
             ( model, Cmd.none )
@@ -192,7 +196,7 @@ updateInitialized action model =
 
         AuthMsg msg ->
             Update3.lift .auth (\x m -> { m | auth = x }) AuthMsg Auth.api.update msg model
-                |> Update3.evalMaybe updateStatus Cmd.none
+                |> Update3.evalMaybe (updateStatus model.localStorage) Cmd.none
 
         LogIn ->
             ( model, Auth.api.login { username = model.username, password = model.password } |> Cmd.map AuthMsg )
@@ -228,13 +232,16 @@ updateInitialized action model =
 
 
 updateStatus :
-    AuthAPI.Status Auth.AuthExtensions Auth.Challenge Auth.FailReason
+    LocalStorage Msg
+    -> AuthAPI.Status Auth.AuthExtensions Auth.Challenge Auth.FailReason
     -> { a | session : AuthAPI.Status Auth.AuthExtensions Auth.Challenge Auth.FailReason }
     -> ( { a | session : AuthAPI.Status Auth.AuthExtensions Auth.Challenge Auth.FailReason }, Cmd Msg )
-updateStatus status nextModel =
+updateStatus localStorage status nextModel =
     case status of
         AuthAPI.LoggedIn { saveState } ->
-            ( { nextModel | session = status }, Cmd.none )
+            ( { nextModel | session = status }
+            , LocalStorage.setItem localStorage "auth" saveState
+            )
 
         _ ->
             ( { nextModel | session = status }, Cmd.none )
