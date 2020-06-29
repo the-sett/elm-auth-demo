@@ -1,6 +1,6 @@
 require('../assets/images/data_center-large.png')
 
-const LocalStorage = require('./local-storage').ElmLocalStoragePorts;
+const LocalStorage = require('@the-sett/elm-localstorage').ElmLocalStoragePorts;
 
 const {
   Elm
