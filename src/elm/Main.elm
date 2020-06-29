@@ -18,7 +18,7 @@ import Html.Styled exposing (div, form, h4, img, label, span, styled, text, toUn
 import Html.Styled.Attributes exposing (for, name, src)
 import Html.Styled.Events exposing (onClick, onInput)
 import Json.Encode as Encode
-import LocalStorage exposing (LocalStorage)
+import LocalStorage exposing (LocalStorage, Operation(..))
 import Ports.LocalStoragePort as LocalStoragePort
 import Process
 import Responsive
@@ -66,7 +66,7 @@ type alias InitializedModel =
 type Msg
     = LafMsg Laf.Msg
     | AuthMsg Auth.Msg
-    | LocalStorageOp LocalStorage.Operation String Encode.Value
+    | LocalStorageOp LocalStorage.Operation
     | InitialTimeout
     | LogIn
     | LogOut
@@ -176,12 +176,17 @@ updateRestoring action model =
         InitialTimeout ->
             ( model, Cmd.none )
 
-        LocalStorageOp op key value ->
-            let
-                _ =
-                    Debug.log "msg" { op = op, key = key, value = Encode.encode 0 value }
-            in
-            ( model, Auth.api.restore value |> Cmd.map AuthMsg )
+        LocalStorageOp op ->
+            case op of
+                GetItem key value ->
+                    let
+                        _ =
+                            Debug.log "msg" { op = op, key = key, value = Encode.encode 0 value }
+                    in
+                    ( model, Auth.api.restore value |> Cmd.map AuthMsg )
+
+                _ ->
+                    ( model, Cmd.none )
 
         _ ->
             ( model, Cmd.none )
@@ -213,7 +218,12 @@ updateInitialized action model =
             ( clear model, Auth.api.unauthed |> Cmd.map AuthMsg )
 
         LogOut ->
-            ( clear model, Auth.api.logout |> Cmd.map AuthMsg )
+            ( clear model
+            , Cmd.batch
+                [ Auth.api.logout |> Cmd.map AuthMsg
+                , LocalStorage.clear model.localStorage
+                ]
+            )
 
         Refresh ->
             ( model, Auth.api.refresh |> Cmd.map AuthMsg )
