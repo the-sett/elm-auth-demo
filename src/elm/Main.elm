@@ -18,7 +18,7 @@ import Html.Styled exposing (div, form, h4, img, label, span, styled, text, toUn
 import Html.Styled.Attributes exposing (for, name, src)
 import Html.Styled.Events exposing (onClick, onInput)
 import Json.Encode as Encode
-import LocalStorage exposing (LocalStorage, Operation(..))
+import LocalStorage exposing (LocalStorage, Response(..))
 import Ports.LocalStoragePort as LocalStoragePort
 import Process
 import Responsive
@@ -66,7 +66,7 @@ type alias InitializedModel =
 type Msg
     = LafMsg Laf.Msg
     | AuthMsg Auth.Msg
-    | LocalStorageOp LocalStorage.Operation
+    | LocalStorageOp LocalStorage.Response
     | InitialTimeout
     | LogIn
     | LogOut
@@ -177,8 +177,8 @@ updateRestoring action model =
             ( model, Cmd.none )
 
         LocalStorageOp op ->
-            case op of
-                GetItem key value ->
+            case Debug.log "localstorage" op of
+                Item key value ->
                     let
                         _ =
                             Debug.log "msg" { op = op, key = key, value = Encode.encode 0 value }

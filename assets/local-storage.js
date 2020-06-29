@@ -70,10 +70,7 @@ ElmLocalStoragePorts.prototype.subscribe =
               keys.push(key);
             }
           }
-          responsePort.send({
-            prefix: prefix,
-            keys: keys
-          });
+          responsePort.send(keys);
         });
       } else {
         console.warn("The " + listKeysPortName + " port is not connected.");
