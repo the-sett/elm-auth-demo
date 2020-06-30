@@ -1,4 +1,4 @@
-module Main exposing (init, update, view, Model, Msg)
+module Main exposing (init, update, subscriptions, view, Model, Msg)
 
 {-| The content editor client top module.
 
@@ -17,6 +17,9 @@ import Html
 import Html.Styled exposing (div, form, h4, img, label, span, styled, text, toUnstyled)
 import Html.Styled.Attributes exposing (for, name, src)
 import Html.Styled.Events exposing (onClick, onInput)
+import Json.Encode as Encode
+import LocalStorage exposing (LocalStorage, Response(..))
+import Ports.LocalStoragePort as LocalStoragePort
 import Process
 import Responsive
 import Styles exposing (lg, md, sm, xl)
@@ -35,17 +38,26 @@ import ViewUtils
 -}
 type Model
     = Error String
-    | Restoring InitializedModel
+    | Restoring RestoringModel
     | Initialized InitializedModel
+
+
+type alias RestoringModel =
+    { laf : Laf.Model
+    , auth : Auth.Model
+    , session : AuthAPI.Status Auth.AuthExtensions Auth.Challenge Auth.FailReason
+    , localStorage : LocalStorage Msg
+    }
 
 
 type alias InitializedModel =
     { laf : Laf.Model
     , auth : Auth.Model
-    , session : AuthAPI.Status Auth.AuthExtensions Auth.Challenge
+    , session : AuthAPI.Status Auth.AuthExtensions Auth.Challenge Auth.FailReason
     , username : String
     , password : String
     , passwordVerify : String
+    , localStorage : LocalStorage Msg
     }
 
 
@@ -54,6 +66,7 @@ type alias InitializedModel =
 type Msg
     = LafMsg Laf.Msg
     | AuthMsg Auth.Msg
+    | LocalStorageOp LocalStorage.Response
     | InitialTimeout
     | LogIn
     | LogOut
@@ -88,23 +101,49 @@ init _ =
                         , identityPoolId = "us-east-1:fb4d5209-33b1-46e2-923a-8aa206d5c7aa"
                         , accountId = "345745834314"
                         }
+                , authHeaderName = "Authorization"
+                , authHeaderPrefix = Just "Bearer"
                 }
+
+        localStorage =
+            LocalStorage.make
+                LocalStoragePort.getItem
+                LocalStoragePort.setItem
+                LocalStoragePort.clear
+                LocalStoragePort.listKeys
+                "authdemo"
     in
     case authInitResult of
         Ok authInit ->
-            ( Initialized
+            ( Restoring
                 { laf = Laf.init
                 , auth = authInit
                 , session = AuthAPI.LoggedOut
-                , username = ""
-                , password = ""
-                , passwordVerify = ""
+                , localStorage = localStorage
                 }
-            , Process.sleep 1000 |> Task.perform (always InitialTimeout)
+            , Cmd.batch
+                [ Process.sleep 1000 |> Task.perform (always InitialTimeout)
+                , LocalStorage.getItem localStorage "auth"
+                ]
             )
 
         Err errMsg ->
             ( Error errMsg, Cmd.none )
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    case model of
+        Restoring { localStorage } ->
+            LocalStorage.responseHandler LocalStorageOp localStorage
+                |> LocalStoragePort.response
+
+        Initialized { localStorage } ->
+            LocalStorage.responseHandler LocalStorageOp localStorage
+                |> LocalStoragePort.response
+
+        Error _ ->
+            Sub.none
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -113,8 +152,19 @@ update action model =
         Error _ ->
             ( model, Cmd.none )
 
-        Restoring initModel ->
-            updateInitialized action initModel
+        Restoring restoringModel ->
+            updateRestoring action restoringModel
+                |> Tuple.mapFirst
+                    (\rm ->
+                        { laf = rm.laf
+                        , auth = rm.auth
+                        , session = rm.session
+                        , username = ""
+                        , password = ""
+                        , passwordVerify = ""
+                        , localStorage = rm.localStorage
+                        }
+                    )
                 |> Tuple.mapFirst Initialized
 
         Initialized initModel ->
@@ -122,19 +172,46 @@ update action model =
                 |> Tuple.mapFirst Initialized
 
 
-updateInitialized : Msg -> InitializedModel -> ( InitializedModel, Cmd Msg )
-updateInitialized action model =
-    case Debug.log "msg" action of
+updateRestoring : Msg -> RestoringModel -> ( RestoringModel, Cmd Msg )
+updateRestoring action model =
+    case action of
         LafMsg lafMsg ->
             Laf.update LafMsg lafMsg model.laf
                 |> Tuple.mapFirst (\laf -> { model | laf = laf })
 
         AuthMsg msg ->
             Update3.lift .auth (\x m -> { m | auth = x }) AuthMsg Auth.api.update msg model
-                |> Update3.evalMaybe (\status -> \nextModel -> ( { nextModel | session = status }, Cmd.none )) Cmd.none
+                |> Update3.evalMaybe (updateStatus model.localStorage) Cmd.none
 
         InitialTimeout ->
-            ( model, Auth.api.refresh |> Cmd.map AuthMsg )
+            ( model, Cmd.none )
+
+        LocalStorageOp op ->
+            case Debug.log "localstorage" op of
+                Item key value ->
+                    let
+                        _ =
+                            Debug.log "msg" { op = op, key = key, value = Encode.encode 0 value }
+                    in
+                    ( model, Auth.api.restore value |> Cmd.map AuthMsg )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        _ ->
+            ( model, Cmd.none )
+
+
+updateInitialized : Msg -> InitializedModel -> ( InitializedModel, Cmd Msg )
+updateInitialized action model =
+    case action of
+        LafMsg lafMsg ->
+            Laf.update LafMsg lafMsg model.laf
+                |> Tuple.mapFirst (\laf -> { model | laf = laf })
+
+        AuthMsg msg ->
+            Update3.lift .auth (\x m -> { m | auth = x }) AuthMsg Auth.api.update msg model
+                |> Update3.evalMaybe (updateStatus model.localStorage) Cmd.none
 
         LogIn ->
             ( model, Auth.api.login { username = model.username, password = model.password } |> Cmd.map AuthMsg )
@@ -151,7 +228,12 @@ updateInitialized action model =
             ( clear model, Auth.api.unauthed |> Cmd.map AuthMsg )
 
         LogOut ->
-            ( clear model, Auth.api.logout |> Cmd.map AuthMsg )
+            ( clear model
+            , Cmd.batch
+                [ Auth.api.logout |> Cmd.map AuthMsg
+                , LocalStorage.clear model.localStorage
+                ]
+            )
 
         Refresh ->
             ( model, Auth.api.refresh |> Cmd.map AuthMsg )
@@ -164,6 +246,25 @@ updateInitialized action model =
 
         UpdatePasswordVerificiation str ->
             ( { model | passwordVerify = str }, Cmd.none )
+
+        _ ->
+            ( model, Cmd.none )
+
+
+updateStatus :
+    LocalStorage Msg
+    -> AuthAPI.Status Auth.AuthExtensions Auth.Challenge Auth.FailReason
+    -> { a | session : AuthAPI.Status Auth.AuthExtensions Auth.Challenge Auth.FailReason }
+    -> ( { a | session : AuthAPI.Status Auth.AuthExtensions Auth.Challenge Auth.FailReason }, Cmd Msg )
+updateStatus localStorage status nextModel =
+    case status of
+        AuthAPI.LoggedIn { saveState } ->
+            ( { nextModel | session = status }
+            , LocalStorage.setItem localStorage "auth" saveState
+            )
+
+        _ ->
+            ( { nextModel | session = status }, Cmd.none )
 
 
 clear : InitializedModel -> InitializedModel
@@ -250,12 +351,13 @@ errorView errMsg =
         ]
 
 
+initializedView : InitializedModel -> Html.Styled.Html Msg
 initializedView model =
     case model.session of
         AuthAPI.LoggedOut ->
             loginView model
 
-        AuthAPI.Failed ->
+        AuthAPI.Failed _ ->
             notPermittedView model
 
         AuthAPI.LoggedIn state ->
@@ -344,12 +446,11 @@ notPermittedView model =
         ]
 
 
-authenticatedView : { a | username : String, auth : Auth.Model } -> { scopes : List String, subject : String } -> Html.Styled.Html Msg
+authenticatedView : { a | username : String, auth : Auth.Model } -> { b | scopes : List String, subject : String } -> Html.Styled.Html Msg
 authenticatedView model user =
     let
         maybeAWSCredentials =
             Auth.api.getAWSCredentials model.auth
-                |> Debug.log "credentials"
 
         credentialsView =
             case maybeAWSCredentials of
