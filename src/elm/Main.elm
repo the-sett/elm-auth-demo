@@ -111,7 +111,7 @@ init _ =
                 LocalStoragePort.setItem
                 LocalStoragePort.clear
                 LocalStoragePort.listKeys
-                "auth"
+                "authdemo"
     in
     case authInitResult of
         Ok authInit ->
@@ -133,7 +133,17 @@ init _ =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    LocalStoragePort.response <| LocalStorage.responseHandler LocalStorageOp "auth"
+    case model of
+        Restoring { localStorage } ->
+            LocalStorage.responseHandler LocalStorageOp localStorage
+                |> LocalStoragePort.response
+
+        Initialized { localStorage } ->
+            LocalStorage.responseHandler LocalStorageOp localStorage
+                |> LocalStoragePort.response
+
+        Error _ ->
+            Sub.none
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
