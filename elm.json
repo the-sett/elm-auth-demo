@@ -1,8 +1,7 @@
 {
     "type": "application",
     "source-directories": [
-        "src/elm",
-        "/home/rupert/sc/github/the-sett/elm-auth-aws/src"
+        "src/elm"
     ],
     "elm-version": "0.19.1",
     "dependencies": {
@@ -24,6 +23,7 @@
             "rtfeldman/elm-css": "15.1.0",
             "rtfeldman/elm-iso8601-date-strings": "1.1.3",
             "the-sett/elm-auth": "5.0.0",
+            "the-sett/elm-auth-aws": "5.0.0",
             "the-sett/elm-aws-cognito": "4.0.0",
             "the-sett/elm-aws-core": "8.0.0",
             "the-sett/elm-localstorage": "3.0.0",
