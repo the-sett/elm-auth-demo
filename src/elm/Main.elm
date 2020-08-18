@@ -6,7 +6,7 @@ module Main exposing (init, update, subscriptions, view, Model, Msg)
 
 -}
 
-import AWS.Auth as Auth
+import AWS.Auth as Auth exposing (FailReason(..))
 import AuthAPI
 import Browser
 import Config exposing (config)
@@ -357,8 +357,14 @@ initializedView model =
         AuthAPI.LoggedOut ->
             loginView model
 
-        AuthAPI.Failed _ ->
+        AuthAPI.Failed NotAuthorized ->
             notPermittedView model
+
+        AuthAPI.Failed PasswordResetRequired ->
+            passwordResetRequiredView model
+
+        AuthAPI.Failed _ ->
+            errorView "Error"
 
         AuthAPI.LoggedIn state ->
             authenticatedView model state
@@ -438,6 +444,28 @@ notPermittedView model =
                     [ onInput UpdatePassword
                     ]
                     [ text "Password" ]
+                    devices
+                ]
+            ]
+            [ Buttons.button [] [ onClick TryAgain ] [ text "Try Again" ] devices ]
+            devices
+        ]
+
+
+passwordResetRequiredView : { a | laf : Laf.Model, username : String, password : String } -> Html.Styled.Html Msg
+passwordResetRequiredView model =
+    framing <|
+        [ card "images/data_center-large.png"
+            "Password Reset Required"
+            [ form []
+                [ Textfield.text
+                    LafMsg
+                    [ 1 ]
+                    model.laf
+                    []
+                    [ onInput UpdateUsername
+                    ]
+                    [ text "Authorization Code" ]
                     devices
                 ]
             ]
