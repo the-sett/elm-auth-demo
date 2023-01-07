@@ -20,7 +20,7 @@
     "compression-webpack-plugin": "^1.1.11",
     "copy-webpack-plugin": "^4.5.1",
     "extract-text-webpack-plugin": "^4.0.0-beta.0",
-    "html-webpack-plugin": "^3.0.6",
+    "html-webpack-plugin": "^5.5.0",
     "uglifyjs-webpack-plugin": "^1.2.4",
     "elm": "latest-0.19.1",
     "elm-hot": "^1.0.1",
